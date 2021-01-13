@@ -1,0 +1,69 @@
+# Este sería el loadBalancer del backend
+# Este servicio lo he sacado de: https://metallb.universe.tf/usage/#requesting-specific-ips
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-backend-lb # Poner aquí el nombre para tu loadBalancer
+spec:
+  ports:
+  - port: 80 # El puerto en el que quieres levantar tu contenedor, 80 es http
+    targetPort: 8080 # El puerto del contenedor al que quieres aplicar el loadBalancer
+  selector:
+    app: myapp # El nombre que le quieres dar a tu aplicación
+  type: LoadBalancer
+  loadBalancerIP: 192.168.99.101 # Aquí la ip que quieres dar a tu contenedor
+
+---
+
+# Este sería el loadBalancer del frontend
+# Este servicio lo he sacado de: https://metallb.universe.tf/usage/#requesting-specific-ips
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-frontend-lb # Poner aquí el nombre para tu loadBalancer
+spec:
+  ports:
+  - port: 80 # El puerto en el que quieres levantar tu contenedor, 80 es http
+    targetPort: 5000 # El puerto del contenedor al que quieres aplicar el loadBalancer
+  selector:
+    app: myapp
+  type: LoadBalancer
+  loadBalancerIP: 192.168.99.102 # Aquí la ip que quieres dar a tu contenedor
+
+---
+
+# Configuraríamos nuestro despliegue, en este caso hay 1 para ambas apps (front y back)
+# Este deployment lo he sacado de: https://kubernetes.io/es/docs/concepts/overview/working-with-objects/kubernetes-objects/#describir-un-objeto-de-kubernetes
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp # El nombre que le quieres dar a tu aplicación
+spec:
+  selector:
+    matchLabels:
+      app: myapp # El nombre que le quieres dar a tu aplicación
+  replicas: 5 # El número de pods que queremos (copias de la aplicación)
+  template:
+    metadata:
+      labels:
+        app: myapp # El nombre que le quieres dar a tu aplicación
+    spec:
+      containers:
+      - name: myapp-backend # El nombre que le quieres dar a la app de back
+        image: myapp-backend-image # La etiqueta de la imágen de back
+        imagePullPolicy: Never # Muy importante, sirve para utilizar las imágenes locales y no de dockerhub
+        ports:
+        - containerPort: 8080 # El puerto por el que va a escuchar el contenedor
+        env: # Variables de entorno
+          - name: PORT
+            value: "8080"
+          - name: another-var
+            value: "another value"
+      - name: myapp-frontend # El nombre que le quieres dar a la app de front
+        image: myapp-frontend-image # La etiqueta de la imágen de front
+        imagePullPolicy: Never # Muy importante, sirve para utilizar las imágenes locales y no de dockerhub
+        ports:
+        - containerPort: 5000 # El puerto por el que va a escuchar el contenedor
+        env: # Variables de entorno
+          - name: REACT_APP_backurl
+            value: "http://192.168.99.101"
